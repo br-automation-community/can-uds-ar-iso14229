@@ -558,6 +558,7 @@ UDSErr_t UDSSendTransferData(UDSClient_t *client, uint8_t blockSequenceCounter,
     return SendRequest(client);
 }
 
+#if UDS_ENABLE_CLIENT_FILE_TRANSFER
 UDSErr_t UDSSendTransferDataStream(UDSClient_t *client, uint8_t blockSequenceCounter,
                                    const uint16_t blockLength, FILE *fd) {
     UDSErr_t err = PreRequestCheck(client);
@@ -578,6 +579,7 @@ UDSErr_t UDSSendTransferDataStream(UDSClient_t *client, uint8_t blockSequenceCou
     client->send_size = UDS_0X36_REQ_BASE_LEN + size;
     return SendRequest(client);
 }
+#endif
 
 /**
  * @brief

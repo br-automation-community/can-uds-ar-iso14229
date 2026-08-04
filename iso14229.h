@@ -22,6 +22,7 @@ extern "C" {
 #define UDS_SYS_WINDOWS 2
 #define UDS_SYS_ARDUINO 3
 #define UDS_SYS_ESP32 4
+#define UDS_SYS_BR 10
 
 #if !defined(UDS_SYS)
 
@@ -105,6 +106,14 @@ typedef SSIZE_T ssize_t;
 #include <esp_timer.h>
 
 #define UDS_TP_ISOTP_C 1
+
+#endif
+
+
+
+#if UDS_SYS == UDS_SYS_BR
+
+#include "sys_br.h"
 
 #endif
 
@@ -200,6 +209,9 @@ TransferData request message from the client. */
 #define UDS_CUSTOM_MILLIS 0
 #endif
 
+#ifndef UDS_ENABLE_CLIENT_FILE_TRANSFER
+#define UDS_ENABLE_CLIENT_FILE_TRANSFER 1
+#endif
 
 
 
@@ -807,8 +819,10 @@ UDSErr_t UDSSendRequestUpload(UDSClient_t *client, uint8_t dataFormatIdentifier,
                               size_t memorySize);
 UDSErr_t UDSSendTransferData(UDSClient_t *client, uint8_t blockSequenceCounter,
                              const uint16_t blockLength, const uint8_t *data, uint16_t size);
+#if UDS_ENABLE_CLIENT_FILE_TRANSFER
 UDSErr_t UDSSendTransferDataStream(UDSClient_t *client, uint8_t blockSequenceCounter,
                                    const uint16_t blockLength, FILE *fd);
+#endif
 UDSErr_t UDSSendRequestTransferExit(UDSClient_t *client);
 
 UDSErr_t UDSSendRequestFileTransfer(UDSClient_t *client, uint8_t mode, const char *filePath,
@@ -824,10 +838,11 @@ UDSErr_t UDSUnpackRequestDownloadResponse(const UDSClient_t *client,
                                           struct RequestDownloadResponse *resp);
 UDSErr_t UDSUnpackRoutineControlResponse(const UDSClient_t *client,
                                          struct RoutineControlResponse *resp);
-
+#if UDS_ENABLE_CLIENT_FILE_TRANSFER
 UDSErr_t UDSConfigDownload(UDSClient_t *client, uint8_t dataFormatIdentifier,
                            uint8_t addressAndLengthFormatIdentifier, size_t memoryAddress,
                            size_t memorySize, FILE *fd);
+#endif
 
 
 
