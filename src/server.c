@@ -492,31 +492,47 @@ static UDSErr_t decodeAddressAndLengthWithOffset(UDSReq_t *r, uint8_t *const buf
     }
 
     uint8_t memorySizeLength = (buf[0] & 0xF0) >> 4;
-    uint8_t memoryAddressLength = buf[0] & 0x0F;
-    size_t offsetBytes = offset * (memoryAddressLength + memorySizeLength);
+    uint8_t encodedMemoryAddressLength = buf[0] & 0x0F;
+    size_t offsetBytes = offset * (encodedMemoryAddressLength + memorySizeLength);
+    uint8_t addressPrefixBytes = 0;
+    uint8_t decodedMemoryAddressLength = encodedMemoryAddressLength;
 
     if (memorySizeLength == 0 || memorySizeLength > sizeof(size_t)) {
         return NegativeResponse(r, UDS_NRC_RequestOutOfRange);
     }
 
-    if (memoryAddressLength == 0 || memoryAddressLength > sizeof(size_t)) {
+    if (encodedMemoryAddressLength == 0) {
         return NegativeResponse(r, UDS_NRC_RequestOutOfRange);
     }
 
-    if (buf + 1 + offsetBytes + memorySizeLength + memoryAddressLength >
+    /*
+     * Some targets encode memory type (volatile/non-volatile) as the first byte
+     * of a 5-byte memoryAddress field. Keep the encoded length for frame parsing,
+     * but decode only the trailing 4 address bytes into the pointer value.
+     */
+    if (encodedMemoryAddressLength == 5) {
+        addressPrefixBytes = 1;
+        decodedMemoryAddressLength = 4;
+    }
+
+    if (decodedMemoryAddressLength > sizeof(uintptr_t)) {
+        return NegativeResponse(r, UDS_NRC_RequestOutOfRange);
+    }
+
+    if (buf + 1 + offsetBytes + memorySizeLength + encodedMemoryAddressLength >
         r->recv_buf + r->recv_len) {
         return NegativeResponse(r, UDS_NRC_IncorrectMessageLengthOrInvalidFormat);
     }
 
-    for (int byteIdx = 0; byteIdx < memoryAddressLength; byteIdx++) {
-        long long unsigned int byte = buf[1 + offsetBytes + byteIdx];
-        uint8_t shiftBytes = (uint8_t)(memoryAddressLength - 1 - byteIdx);
+    for (int byteIdx = 0; byteIdx < decodedMemoryAddressLength; byteIdx++) {
+        uintptr_t byte = (uintptr_t)buf[1 + offsetBytes + addressPrefixBytes + byteIdx];
+        uint8_t shiftBytes = (uint8_t)(decodedMemoryAddressLength - 1 - byteIdx);
         tmp |= byte << (8 * shiftBytes);
     }
     *memoryAddress = (void *)tmp;
 
     for (int byteIdx = 0; byteIdx < memorySizeLength; byteIdx++) {
-        uint8_t byte = buf[1 + offsetBytes + memoryAddressLength + byteIdx];
+        uint8_t byte = buf[1 + offsetBytes + encodedMemoryAddressLength + byteIdx];
         uint8_t shiftBytes = (uint8_t)(memorySizeLength - 1 - byteIdx);
         *memorySize |= (size_t)byte << (8 * shiftBytes);
     }
